@@ -151,10 +151,13 @@ circuit "github_runner" {
     }
   }
 
+  # --no-overwrite-dir keeps the mode runner_dir set: the tarball's own
+  # entry for it would take the session's umask, such as 027 on a host
+  # hardened by circuit-hardening, and every plan would change it back.
   step "unpack" {
     for_each = local.dir
     command {
-      command = "runuser -u ${var.user} -- tar -xzf ${var.install_dir}/${local.tarball[each.key]} -C ${item.value} && systemctl try-restart github-runner@${item.key}"
+      command = "runuser -u ${var.user} -- tar --no-overwrite-dir -xzf ${var.install_dir}/${local.tarball[each.key]} -C ${item.value} && systemctl try-restart github-runner@${item.key}"
       unless  = local.current[item.key]
     }
   }

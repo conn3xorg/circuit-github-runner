@@ -25,6 +25,18 @@ variable "registration_token" {
   sensitive = true
 }
 
+# CI sets these to install an older runner first, then upgrades to the
+# circuit's own pin by applying again without them.
+variable "runner_version" {
+  type    = string
+  default = null
+}
+
+variable "checksums" {
+  type    = map(string)
+  default = null
+}
+
 module "github_runner" {
   source = "../.."
 
@@ -36,6 +48,8 @@ module "github_runner" {
   github_url         = var.github_url
   register           = var.register
   registration_token = var.registration_token
+  runner_version     = var.runner_version
+  checksums          = var.checksums
 
   runners = {
     build = { labels = ["conn3x-test"] }

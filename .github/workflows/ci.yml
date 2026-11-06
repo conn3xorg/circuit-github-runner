@@ -76,20 +76,60 @@ jobs:
       # registering: the tarball, the runner starting as its own user with
       # its libraries in place, and the unit.
       - name: Check the runner is installed, runs as its user and has its unit
+        working-directory: examples/local
+        run: sudo podman exec -i circuit-github-runner bash < check.sh
+      # Restarting the container boots systemd again, so this checks the unit
+      # is still enabled, still skipped while unregistered, and the plan still
+      # has nothing to do.
+      - name: Restart the host, then check the runner and the plan
+        working-directory: examples/local
         run: |
-          sudo podman exec -i circuit-github-runner bash -eu <<'EOF'
-          cd /opt/actions-runner
-          sha256sum -c <<< "baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40  actions-runner-linux-x64-2.338.2.tar.gz"
-          [ "$(runuser -u github-runner -- build/bin/Runner.Listener --version)" = 2.338.2 ]
-          [ "$(stat -c %U build/config.sh)" = github-runner ]
-          [ "$(id -nG github-runner)" = github-runner ]
-          [ "$(systemctl is-enabled github-runner@build)" = enabled ]
-          [ "$(systemctl show -P User github-runner@build)" = github-runner ]
-          [ "$(systemctl show -P WorkingDirectory github-runner@build)" = /opt/actions-runner/build ]
-          # Not registered, so the unit's condition keeps it from starting.
-          systemctl start github-runner@build
-          [ "$(systemctl is-active github-runner@build)" = inactive ]
-          EOF
+          sudo podman restart circuit-github-runner
+          for _ in $(seq 60); do
+            case $(sudo podman exec circuit-github-runner systemctl is-system-running 2>/dev/null) in running|degraded) break ;; esac
+            sleep 1
+          done
+          sudo podman exec -i circuit-github-runner bash < check.sh
+          conn3x plan -detailed-exitcode
+      # GitHub rejects a made-up token, so the apply fails at config.sh, after
+      # the token file is written. The token has to be on the host and
+      # nowhere in state, and register = false has to take it off again.
+      - name: Register with a token GitHub rejects, then check the token stayed out of state
+        working-directory: examples/local
+        run: |
+          token=CONN3XCITOKEN$(openssl rand -hex 12 | tr a-f A-F)
+          if TF_VAR_registration_token=$token conn3x apply -auto-approve -var register=true; then
+            echo "Registering with a made-up token should have failed." >&2
+            exit 1
+          fi
+          [ "$(sudo podman exec circuit-github-runner cat /etc/github-runner/token)" = "$token" ]
+          if grep -q "$token" terraform.tfstate; then
+            echo "The registration token is in terraform.tfstate." >&2
+            exit 1
+          fi
+          conn3x apply -auto-approve
+          sudo podman exec circuit-github-runner test ! -e /etc/github-runner/token
+          conn3x plan -detailed-exitcode
+      # A fresh host gets the previous release, then the circuit's own pin is
+      # applied over it, the way someone raises runner_version with
+      # auto_update = false.
+      - name: Upgrade from runner 2.338.0 on a fresh host, then plan again with no changes
+        working-directory: examples/local
+        env:
+          CONTAINERFILE: ${{ github.workspace }}/conn3x/test/images/${{ matrix.distro }}/Containerfile
+          PODMAN: sudo podman
+        run: |
+          ./down.sh
+          ./up.sh
+          conn3x init
+          conn3x apply -auto-approve -var runner_version=2.338.0 \
+            -var 'checksums={x86_64="af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32",aarch64="628b4a7258487b80c1d3c221095a7ded349f5ae0175fd3dfab708d07428f041b"}'
+          [ "$(sudo podman exec circuit-github-runner runuser -u github-runner -- /opt/actions-runner/build/bin/Runner.Listener --version)" = 2.338.0 ]
+          conn3x apply -auto-approve
+          conn3x plan -detailed-exitcode
+      - name: Check the upgraded runner
+        working-directory: examples/local
+        run: sudo podman exec -i circuit-github-runner bash < check.sh
       - name: Clean up
         if: always()
         working-directory: examples/local

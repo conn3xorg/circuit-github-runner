@@ -93,7 +93,8 @@ variable "runners" {
 variable "runner_version" {
   type        = string
   default     = "2.338.2"
-  description = "actions/runner release to install, without the leading v."
+  nullable    = false
+  description = "actions/runner release to install, without the leading v. Null means the default."
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.runner_version))
@@ -103,7 +104,8 @@ variable "runner_version" {
 
 variable "checksums" {
   type        = map(string)
-  description = "SHA-256 of the release tarball for each architecture, x86_64 and aarch64, from the release notes. Change these with runner_version."
+  nullable    = false
+  description = "SHA-256 of the release tarball for each architecture, x86_64 and aarch64, from the release notes. Change these with runner_version. Null means the default."
   default = {
     x86_64  = "baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40"
     aarch64 = "670adb2f268fe21dcbb58b3db0e0aa9d5b3bddfe2c651481336e561ff86de945"

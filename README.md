@@ -10,7 +10,7 @@ You'd want one when GitHub's hosted runners can't reach what a job needs, such a
 
 ```hcl
 module "github_runner" {
-  source = "github.com/conn3xorg/circuit-github-runner?ref=v0.1.1"
+  source = "github.com/conn3xorg/circuit-github-runner?ref=v0.1.2"
 
   hosts                = { ci1 = "203.0.113.10", ci2 = "203.0.113.11" }
   ssh_private_key_file = "~/.ssh/id_ed25519"

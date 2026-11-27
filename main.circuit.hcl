@@ -124,14 +124,6 @@ circuit "github_runner" {
     }
   }
 
-  # Picks up a changed unit in runners that are already running.
-  step "reload" {
-    command {
-      command  = "systemctl daemon-reload && systemctl try-restart 'github-runner@*'"
-      triggers = { unit = sha256(local.unit_content) }
-    }
-  }
-
   step "download" {
     download {
       url    = "https://github.com/actions/runner/releases/download/v${var.runner_version}/${local.tarball[each.key]}"
@@ -157,8 +149,23 @@ circuit "github_runner" {
   step "unpack" {
     for_each = local.dir
     command {
-      command = "runuser -u ${var.user} -- tar --no-overwrite-dir -xzf ${var.install_dir}/${local.tarball[each.key]} -C ${item.value} && systemctl try-restart github-runner@${item.key}"
+      command = "runuser -u ${var.user} -- tar --no-overwrite-dir -xzf ${var.install_dir}/${local.tarball[each.key]} -C ${item.value}"
       unless  = local.current[item.key]
+    }
+  }
+
+  # A runner that's already running restarts on a new release or a changed
+  # unit; one that isn't stays stopped. service_action reloads systemd
+  # first when the unit changed.
+  step "restart" {
+    for_each = local.dir
+    service_action {
+      name   = "github-runner@${item.key}"
+      action = "try-restart"
+      triggers = {
+        unit   = sha256(local.unit_content)
+        unpack = conn3x_command.github_runner__unpack["${each.key}/${item.key}"].revision
+      }
     }
   }
 

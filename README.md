@@ -10,7 +10,7 @@ You'd want one when GitHub's hosted runners can't reach what a job needs, such a
 
 ```hcl
 module "github_runner" {
-  source = "github.com/conn3xorg/circuit-github-runner?ref=v0.1.3"
+  source = "github.com/conn3xorg/circuit-github-runner?ref=v0.2.0"
 
   hosts                = { ci1 = "203.0.113.10", ci2 = "203.0.113.11" }
   ssh_private_key_file = "~/.ssh/id_ed25519"
@@ -152,7 +152,7 @@ Or delete it from the runners page in GitHub, or with `gh api -X DELETE repos/ac
 
 ## Requirements
 
-Requires Conn3x v0.6.9 or later and systemd on each host, on x86_64 or aarch64. Each host needs to reach github.com and its package mirror, and a runner needs outbound HTTPS to GitHub to take jobs; it doesn't need any inbound port. GitHub's runner is built for glibc, so Alpine and other musl distributions are out.
+Requires Conn3x v0.30.0 or later and systemd on each host, on x86_64 or aarch64. Each host needs to reach github.com and its package mirror, and a runner needs outbound HTTPS to GitHub to take jobs; it doesn't need any inbound port. GitHub's runner is built for glibc, so Alpine and other musl distributions are out.
 
 ## Tested on
 
